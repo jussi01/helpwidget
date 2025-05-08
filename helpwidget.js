@@ -246,3 +246,6 @@ window.helpWidget = (function() {
 
   return { init };
 })();
+window.helpWidget = {
+  init: init   // or whatever your main init() is called
+};
