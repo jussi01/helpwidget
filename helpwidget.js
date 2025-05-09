@@ -2,7 +2,7 @@
 window.helpWidget = (function() {
   let initialized = false;
   const zendeskSubdomain = "manuonline";
-  const zendeskApi       = `https://${zendeskSubdomain}.zendesk.com/api/v2/help_center`;
+  const zendeskApi = `https://${zendeskSubdomain}.zendesk.com/api/v2/help_center`;
 
   return { init, refresh };
 
@@ -23,10 +23,11 @@ window.helpWidget = (function() {
     const btn = document.getElementById("help-search-btn");
     const input = document.getElementById("help-search");
     if (!btn || !input) return;
-    btn.addEventListener("click", triggerSearch);
-    input.addEventListener("keydown", e => {
+
+    btn.onclick = triggerSearch;
+    input.onkeydown = e => {
       if (e.key === "Enter") triggerSearch();
-    });
+    };
   }
 
   async function triggerSearch() {
@@ -51,24 +52,26 @@ window.helpWidget = (function() {
   }
 
   async function showRelevantArticles() {
-    const term     = getSearchTermFromURL();
+    const term = getSearchTermFromURL();
     const articles = await searchArticles(term);
     displayRelevantArticles(articles, false);
   }
 
   function displayRelevantArticles(articles, isSearch) {
-    const list    = document.getElementById("relevant-articles");
+    const list = document.getElementById("relevant-articles");
     const display = document.getElementById("article-display");
-    const back    = document.getElementById("back-link");
+    const back = document.getElementById("back-link");
     if (!list || !display || !back) return;
 
-    list.style.display    = "block";
+    list.style.display = "block";
     display.classList.remove("show");
     display.style.display = "none";
     back.classList.add("hidden");
 
-    document.getElementById("relevant-title")?.classList.remove("hidden");
-    document.getElementById("category-title")?.classList.remove("hidden");
+    const relTitle = document.getElementById("relevant-title");
+    const catTitle = document.getElementById("category-title");
+    if (relTitle) relTitle.classList.remove("hidden");
+    if (catTitle) catTitle.classList.remove("hidden");
 
     list.innerHTML = "";
     articles.forEach(article => {
@@ -76,20 +79,21 @@ window.helpWidget = (function() {
       li.innerHTML = `
         <a href="#">${article.title}</a>
         <div class="article-snippet">
-          ${(article.body||"").replace(/<[^>]+>/g,"").slice(0,280)}...
+          ${(article.body || "").replace(/<[^>]+>/g, "").slice(0, 280)}...
         </div>
       `;
       const a = li.querySelector("a");
-      if (a) a.addEventListener("click", e => {
-        e.preventDefault();
-        displayFullArticle(article);
-      });
+      if (a) {
+        a.addEventListener("click", e => {
+          e.preventDefault();
+          displayFullArticle(article);
+        });
+      }
       list.appendChild(li);
     });
 
-    if (isSearch) {
-      const rel = document.getElementById("relevant-title");
-      if (rel) rel.textContent = "Search results";
+    if (isSearch && relTitle) {
+      relTitle.textContent = "Search results";
     }
   }
 
@@ -98,20 +102,28 @@ window.helpWidget = (function() {
     const content = document.getElementById("article-content");
     if (!display || !content) return;
 
-    ["relevant-articles","help-sections","help-categories"]
-      .forEach(id => document.getElementById(id)?.style.setProperty("display","none"));
-    ["relevant-title","category-title"]
-      .forEach(id => document.getElementById(id)?.classList.add("hidden"));
-    document.getElementById("back-link")?.classList.remove("hidden");
+    ["relevant-articles", "help-sections", "help-categories"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+    ["relevant-title", "category-title"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("hidden");
+    });
+    const back = document.getElementById("back-link");
+    if (back) back.classList.remove("hidden");
 
-    document.getElementById("article-top-link").innerHTML = `
-      <div style="margin-bottom:16px">
-        <a href="${article.html_url}" target="_blank"
-           style="color:var(--blue);font-size:13px;text-decoration:none">
-          See this article in the Help Center
-        </a>
-      </div>
-    `;
+    const topLink = document.getElementById("article-top-link");
+    if (topLink) {
+      topLink.innerHTML = `
+        <div style="margin-bottom:16px">
+          <a href="${article.html_url}" target="_blank"
+             style="color:var(--blue);font-size:13px;text-decoration:none">
+            See this article in the Help Center
+          </a>
+        </div>
+      `;
+    }
 
     content.innerHTML = `<h4>${article.title}</h4>${article.body}`;
     display.style.display = "block";
@@ -125,27 +137,33 @@ window.helpWidget = (function() {
       display.classList.remove("show");
       display.style.display = "none";
     }
-    document.getElementById("back-link")?.classList.add("hidden");
+    const back = document.getElementById("back-link");
+    if (back) back.classList.add("hidden");
 
-    ["relevant-title","category-title"].forEach(id => {
-      document.getElementById(id)?.classList.remove("hidden");
+    ["relevant-title", "category-title"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("hidden");
     });
-    document.getElementById("relevant-articles")?.style.setProperty("display","block");
+    const list = document.getElementById("relevant-articles");
+    if (list) list.style.display = "block";
 
     const sec = document.getElementById("help-sections");
     const cat = document.getElementById("help-categories");
-    if (sec && sec.style.display === "block") sec.style.display = "block";
-    else if (cat) cat.style.display = "block";
+    if (sec && sec.style.display === "block") {
+      sec.style.display = "block";
+    } else if (cat) {
+      cat.style.display = "block";
+    }
   }
 
   async function loadCategories() {
-    const res       = await fetch(`${zendeskApi}/categories.json`);
-    const data      = await res.json();
+    const res = await fetch(`${zendeskApi}/categories.json`);
+    const data = await res.json();
     const container = document.getElementById("help-categories");
     if (!container) return;
     container.innerHTML = "";
 
-    (data.categories||[]).forEach(cat => {
+    (data.categories || []).forEach(cat => {
       const div = document.createElement("div");
       div.className = "category-item";
       div.innerHTML = `
@@ -159,11 +177,15 @@ window.helpWidget = (function() {
       container.appendChild(div);
     });
 
-    window.lucide?.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons==="function") {
+      window.lucide.createIcons();
+    }
   }
 
   async function loadSections(categoryId, categoryName) {
-    document.getElementById("help-categories")?.style.setProperty("display","none");
+    const catsEl = document.getElementById("help-categories");
+    if (catsEl) catsEl.style.display = "none";
+
     const container = document.getElementById("help-sections");
     if (!container) return;
     container.style.display = "block";
@@ -175,21 +197,23 @@ window.helpWidget = (function() {
     if (bc) {
       bc.addEventListener("click", () => {
         container.style.display = "none";
-        document.getElementById("help-categories")?.style.setProperty("display","block");
+        if (catsEl) catsEl.style.display = "block";
       });
     }
 
-    const res  = await fetch(`${zendeskApi}/categories/${categoryId}/sections.json`);
+    const res = await fetch(`${zendeskApi}/categories/${categoryId}/sections.json`);
     const data = await res.json();
-    for (const section of (data.sections||[])) {
+    for (const section of (data.sections || [])) {
       await renderAccordionSection(section, container);
     }
-    window.lucide?.createIcons();
+    if (window.lucide && typeof window.lucide.createIcons==="function") {
+      window.lucide.createIcons();
+    }
   }
 
   async function renderAccordionSection(section, container) {
     const wrapper = document.createElement("div");
-    const header  = document.createElement("div");
+    const header = document.createElement("div");
     header.className = "accordion-header";
     header.innerHTML = `<span>${section.name}</span><i data-lucide="chevron-down"></i>`;
     const content = document.createElement("div");
@@ -199,8 +223,7 @@ window.helpWidget = (function() {
       const isActive = content.classList.contains("active");
       document.querySelectorAll(".accordion-content").forEach(c => c.classList.remove("active"));
       document.querySelectorAll(".accordion-header").forEach(h => h.classList.remove("active"));
-      document.querySelectorAll(".accordion-header i")
-        .forEach(i => i.setAttribute("data-lucide","chevron-down"));
+      document.querySelectorAll(".accordion-header i").forEach(i => i.setAttribute("data-lucide","chevron-down"));
 
       if (!isActive) {
         content.classList.add("active");
@@ -208,23 +231,25 @@ window.helpWidget = (function() {
         const ico = header.querySelector("i");
         if (ico) ico.setAttribute("data-lucide","chevron-up");
       }
-      window.lucide?.createIcons();
+      if (window.lucide && typeof window.lucide.createIcons==="function") {
+        window.lucide.createIcons();
+      }
     });
 
     wrapper.appendChild(header);
     wrapper.appendChild(content);
     container.appendChild(wrapper);
 
-    const res  = await fetch(`${zendeskApi}/sections/${section.id}/articles.json`);
+    const res = await fetch(`${zendeskApi}/sections/${section.id}/articles.json`);
     const data = await res.json();
     const list = document.createElement("ul");
 
-    (data.articles||[]).forEach(article => {
+    (data.articles || []).forEach(article => {
       const li = document.createElement("li");
       li.innerHTML = `
         <a href="#">${article.title}</a>
         <div class="article-snippet">
-          ${(article.body||"").replace(/<[^>]+>/g,"").slice(0,280)}...
+          ${(article.body || "").replace(/<[^>]+>/g, "").slice(0,280)}...
         </div>
       `;
       const a = li.querySelector("a");
@@ -240,14 +265,14 @@ window.helpWidget = (function() {
     content.appendChild(list);
   }
 
-  // auto-init when #help-widget lands in the DOM
+  // auto-init when #help-widget appears
   if (window.MutationObserver) {
-    new MutationObserver((m, obs) => {
+    new MutationObserver((mutations, obs) => {
       if (document.getElementById("help-widget")) {
         init();
         obs.disconnect();
       }
-    }).observe(document.body, { childList:true, subtree:true });
+    }).observe(document.body, { childList: true, subtree: true });
   } else {
     const poll = setInterval(() => {
       if (document.getElementById("help-widget")) {
@@ -256,5 +281,4 @@ window.helpWidget = (function() {
       }
     }, 100);
   }
-
 })();
