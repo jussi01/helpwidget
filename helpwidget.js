@@ -4,68 +4,50 @@ window.helpWidget = (function() {
   const zendeskSubdomain = "manuonline";
   const zendeskApi       = `https://${zendeskSubdomain}.zendesk.com/api/v2/help_center`;
 
-  // Public API
-  return {
-    init,
-    refresh
-  };
+  return { init, refresh };
 
-  // —————————————————————————————————————————————
-  // init: only ever runs your setup once
-  // —————————————————————————————————————————————
   async function init() {
     if (initialized) return;
     initialized = true;
-
     bindSearchHandlers();
     await showRelevantArticles();
     await loadCategories();
   }
 
-  // —————————————————————————————————————————————
-  // refresh: reset the flag and re-run init()
-  // —————————————————————————————————————————————
   async function refresh() {
     initialized = false;
     await init();
   }
 
-  // —————————————————————————————————————————————
-  // hook up search box/button
-  // —————————————————————————————————————————————
   function bindSearchHandlers() {
-    const btn   = document.getElementById("help-search-btn");
+    const btn = document.getElementById("help-search-btn");
     const input = document.getElementById("help-search");
     if (!btn || !input) return;
-
-    btn.removeEventListener("click", triggerSearch);
     btn.addEventListener("click", triggerSearch);
-
-    input.removeEventListener("keydown", onEnterPress);
-    input.addEventListener("keydown", onEnterPress);
-  }
-
-  function onEnterPress(e) {
-    if (e.key === "Enter") triggerSearch();
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") triggerSearch();
+    });
   }
 
   async function triggerSearch() {
-    const term = document.getElementById("help-search").value.trim();
+    const termEl = document.getElementById("help-search");
+    if (!termEl) return;
+    const term = termEl.value.trim();
     if (term.length < 3) return;
     const results = await searchArticles(term);
     displayRelevantArticles(results, true);
   }
 
   function getSearchTermFromURL() {
-    const segs = window.location.pathname.split("/").filter(Boolean);
-    return segs.length ? segs.pop() : "getting started";
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    return parts.length ? parts.pop() : "getting started";
   }
 
   async function searchArticles(query) {
     const url = `${zendeskApi}/articles/search.json?query=${encodeURIComponent(query)}`;
     const res = await fetch(url);
     const data = await res.json();
-    return (data.results||[]).slice(0,3);
+    return (data.results || []).slice(0, 3);
   }
 
   async function showRelevantArticles() {
@@ -78,48 +60,49 @@ window.helpWidget = (function() {
     const list    = document.getElementById("relevant-articles");
     const display = document.getElementById("article-display");
     const back    = document.getElementById("back-link");
+    if (!list || !display || !back) return;
 
     list.style.display    = "block";
     display.classList.remove("show");
     display.style.display = "none";
     back.classList.add("hidden");
-    document.getElementById("relevant-title").classList.remove("hidden");
-    document.getElementById("category-title").classList.remove("hidden");
+
+    document.getElementById("relevant-title")?.classList.remove("hidden");
+    document.getElementById("category-title")?.classList.remove("hidden");
 
     list.innerHTML = "";
-    articles.forEach(a => {
+    articles.forEach(article => {
       const li = document.createElement("li");
       li.innerHTML = `
-        <a href="#">${a.title}</a>
+        <a href="#">${article.title}</a>
         <div class="article-snippet">
-          ${(a.body||"").replace(/<[^>]+>/g, "").slice(0,280)}...
+          ${(article.body||"").replace(/<[^>]+>/g,"").slice(0,280)}...
         </div>
       `;
-      li.querySelector("a").addEventListener("click", e => {
+      const a = li.querySelector("a");
+      if (a) a.addEventListener("click", e => {
         e.preventDefault();
-        displayFullArticle(a);
+        displayFullArticle(article);
       });
       list.appendChild(li);
     });
 
     if (isSearch) {
-      document.getElementById("relevant-title").textContent = "Search results";
+      const rel = document.getElementById("relevant-title");
+      if (rel) rel.textContent = "Search results";
     }
   }
 
   function displayFullArticle(article) {
     const display = document.getElementById("article-display");
     const content = document.getElementById("article-content");
+    if (!display || !content) return;
 
-    ["relevant-articles","help-sections","help-categories"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-    ["relevant-title","category-title"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.add("hidden");
-    });
-    document.getElementById("back-link").classList.remove("hidden");
+    ["relevant-articles","help-sections","help-categories"]
+      .forEach(id => document.getElementById(id)?.style.setProperty("display","none"));
+    ["relevant-title","category-title"]
+      .forEach(id => document.getElementById(id)?.classList.add("hidden"));
+    document.getElementById("back-link")?.classList.remove("hidden");
 
     document.getElementById("article-top-link").innerHTML = `
       <div style="margin-bottom:16px">
@@ -137,17 +120,17 @@ window.helpWidget = (function() {
   }
 
   function hideArticle() {
-    const disp = document.getElementById("article-display");
-    if (disp) {
-      disp.classList.remove("show");
-      disp.style.display = "none";
+    const display = document.getElementById("article-display");
+    if (display) {
+      display.classList.remove("show");
+      display.style.display = "none";
     }
     document.getElementById("back-link")?.classList.add("hidden");
 
     ["relevant-title","category-title"].forEach(id => {
       document.getElementById(id)?.classList.remove("hidden");
     });
-    document.getElementById("relevant-articles")!.style.display = "block";
+    document.getElementById("relevant-articles")?.style.setProperty("display","block");
 
     const sec = document.getElementById("help-sections");
     const cat = document.getElementById("help-categories");
@@ -180,7 +163,7 @@ window.helpWidget = (function() {
   }
 
   async function loadSections(categoryId, categoryName) {
-    document.getElementById("help-categories")!.style.display = "none";
+    document.getElementById("help-categories")?.style.setProperty("display","none");
     const container = document.getElementById("help-sections");
     if (!container) return;
     container.style.display = "block";
@@ -188,12 +171,13 @@ window.helpWidget = (function() {
       <div class="breadcrumb">&larr; All categories</div>
       <h3>${categoryName}</h3>
     `;
-    container
-      .querySelector(".breadcrumb")!
-      .addEventListener("click", () => {
+    const bc = container.querySelector(".breadcrumb");
+    if (bc) {
+      bc.addEventListener("click", () => {
         container.style.display = "none";
-        document.getElementById("help-categories")!.style.display = "block";
+        document.getElementById("help-categories")?.style.setProperty("display","block");
       });
+    }
 
     const res  = await fetch(`${zendeskApi}/categories/${categoryId}/sections.json`);
     const data = await res.json();
@@ -215,14 +199,14 @@ window.helpWidget = (function() {
       const isActive = content.classList.contains("active");
       document.querySelectorAll(".accordion-content").forEach(c => c.classList.remove("active"));
       document.querySelectorAll(".accordion-header").forEach(h => h.classList.remove("active"));
-      document
-        .querySelectorAll(".accordion-header i")
-        .forEach(i => i.setAttribute("data-lucide", "chevron-down"));
+      document.querySelectorAll(".accordion-header i")
+        .forEach(i => i.setAttribute("data-lucide","chevron-down"));
 
       if (!isActive) {
         content.classList.add("active");
         header.classList.add("active");
-        header.querySelector("i")!.setAttribute("data-lucide", "chevron-up");
+        const ico = header.querySelector("i");
+        if (ico) ico.setAttribute("data-lucide","chevron-up");
       }
       window.lucide?.createIcons();
     });
@@ -240,37 +224,37 @@ window.helpWidget = (function() {
       li.innerHTML = `
         <a href="#">${article.title}</a>
         <div class="article-snippet">
-          ${(article.body||"").replace(/<[^>]+>/g, "").slice(0,280)}...
+          ${(article.body||"").replace(/<[^>]+>/g,"").slice(0,280)}...
         </div>
       `;
-      li.querySelector("a")!.addEventListener("click", e => {
-        e.preventDefault();
-        displayFullArticle(article);
-      });
+      const a = li.querySelector("a");
+      if (a) {
+        a.addEventListener("click", e => {
+          e.preventDefault();
+          displayFullArticle(article);
+        });
+      }
       list.appendChild(li);
     });
 
     content.appendChild(list);
   }
 
-  // —————————————————————————————————————————————
-  // auto-init as soon as #help-widget appears in the DOM
-  // —————————————————————————————————————————————
-  (function autoInit() {
-    if (typeof MutationObserver !== "undefined") {
-      new MutationObserver((_, obs) => {
-        if (document.getElementById("help-widget")) {
-          init();
-          obs.disconnect();
-        }
-      }).observe(document.body, { childList: true, subtree: true });
-    } else {
-      const poll = setInterval(() => {
-        if (document.getElementById("help-widget")) {
-          init();
-          clearInterval(poll);
-        }
-      }, 100);
-    }
-  })();
+  // auto-init when #help-widget lands in the DOM
+  if (window.MutationObserver) {
+    new MutationObserver((m, obs) => {
+      if (document.getElementById("help-widget")) {
+        init();
+        obs.disconnect();
+      }
+    }).observe(document.body, { childList:true, subtree:true });
+  } else {
+    const poll = setInterval(() => {
+      if (document.getElementById("help-widget")) {
+        init();
+        clearInterval(poll);
+      }
+    }, 100);
+  }
+
 })();
