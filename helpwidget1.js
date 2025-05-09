@@ -1,90 +1,120 @@
 // helpwidget.js
 window.helpWidget = (function() {
-  let initialized = false;
-  const zendeskSubdomain = "manuonline";
-  const zendeskApi = `https://${zendeskSubdomain}.zendesk.com/api/v2/help_center`;
+  var initialized = false;
+  var zendeskSubdomain = "manuonline";
+  var zendeskApi = "https://" + zendeskSubdomain + ".zendesk.com/api/v2/help_center";
 
-  return { init, refresh };
+  return {
+    init: init,
+    refresh: refresh
+  };
 
-  async function init() {
-    if (initialized) return;
+  // — init only once
+  function init() {
+    if (initialized) {
+      return;
+    }
     initialized = true;
     bindSearchHandlers();
-    await showRelevantArticles();
-    await loadCategories();
+    showRelevantArticles();
+    loadCategories();
   }
 
-  async function refresh() {
+  // — force a re-init
+  function refresh() {
     initialized = false;
-    await init();
+    init();
   }
 
+  // — attach box + button
   function bindSearchHandlers() {
-    const btn = document.getElementById("help-search-btn");
-    const input = document.getElementById("help-search");
-    if (!btn || !input) return;
-
+    var btn = document.getElementById("help-search-btn");
+    var input = document.getElementById("help-search");
+    if (!btn || !input) {
+      return;
+    }
     btn.onclick = triggerSearch;
-    input.onkeydown = e => {
-      if (e.key === "Enter") triggerSearch();
+    input.onkeydown = function(e) {
+      if (e.key === "Enter") {
+        triggerSearch();
+      }
     };
   }
 
-  async function triggerSearch() {
-    const termEl = document.getElementById("help-search");
-    if (!termEl) return;
-    const term = termEl.value.trim();
-    if (term.length < 3) return;
-    const results = await searchArticles(term);
-    displayRelevantArticles(results, true);
+  // — search click/enter
+  function triggerSearch() {
+    var inp = document.getElementById("help-search");
+    if (!inp) {
+      return;
+    }
+    var term = inp.value.trim();
+    if (term.length < 3) {
+      return;
+    }
+    searchArticles(term, function(results) {
+      displayRelevantArticles(results, true);
+    });
   }
 
+  // — get default term from URL
   function getSearchTermFromURL() {
-    const parts = window.location.pathname.split("/").filter(Boolean);
-    return parts.length ? parts.pop() : "getting started";
+    var parts = window.location.pathname.split("/").filter(function(p) { return p; });
+    if (parts.length > 0) {
+      return parts.pop();
+    }
+    return "getting started";
   }
 
-  async function searchArticles(query) {
-    const url = `${zendeskApi}/articles/search.json?query=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    return (data.results || []).slice(0, 3);
+  // — call Zendesk search
+  function searchArticles(query, callback) {
+    var url = zendeskApi + "/articles/search.json?query=" + encodeURIComponent(query);
+    fetch(url)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var arr = data.results || [];
+        callback(arr.slice(0, 3));
+      });
   }
 
-  async function showRelevantArticles() {
-    const term = getSearchTermFromURL();
-    const articles = await searchArticles(term);
-    displayRelevantArticles(articles, false);
+  // — initial load
+  function showRelevantArticles() {
+    var term = getSearchTermFromURL();
+    searchArticles(term, function(articles) {
+      displayRelevantArticles(articles, false);
+    });
   }
 
+  // — render the list
   function displayRelevantArticles(articles, isSearch) {
-    const list = document.getElementById("relevant-articles");
-    const display = document.getElementById("article-display");
-    const back = document.getElementById("back-link");
-    if (!list || !display || !back) return;
+    var list    = document.getElementById("relevant-articles");
+    var display = document.getElementById("article-display");
+    var back    = document.getElementById("back-link");
+    if (!list || !display || !back) {
+      return;
+    }
 
-    list.style.display = "block";
+    list.style.display    = "block";
     display.classList.remove("show");
     display.style.display = "none";
     back.classList.add("hidden");
 
-    const relTitle = document.getElementById("relevant-title");
-    const catTitle = document.getElementById("category-title");
-    if (relTitle) relTitle.classList.remove("hidden");
-    if (catTitle) catTitle.classList.remove("hidden");
+    var relTitle = document.getElementById("relevant-title");
+    var catTitle = document.getElementById("category-title");
+    if (relTitle) { relTitle.classList.remove("hidden"); }
+    if (catTitle) { catTitle.classList.remove("hidden"); }
 
     list.innerHTML = "";
-    articles.forEach(article => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <a href="#">${article.title}</a>
-        <div class="article-snippet">
-          ${(article.body || "").replace(/<[^>]+>/g, "").slice(0, 280)}...
-        </div>
-      `;
-      const a = li.querySelector("a");
+    articles.forEach(function(article) {
+      var li = document.createElement("li");
+      li.innerHTML = ''
+        + '<a href="#">' + article.title + '</a>'
+        + '<div class="article-snippet">'
+        +   ( (article.body||"").replace(/<[^>]+>/g,"").slice(0,280) )
+        +   '...'
+        + '</div>';
+      var a = li.querySelector("a");
       if (a) {
-        a.addEventListener("click", e => {
+        a.addEventListener("click", function(e) {
           e.preventDefault();
           displayFullArticle(article);
         });
@@ -97,58 +127,65 @@ window.helpWidget = (function() {
     }
   }
 
+  // — show one full article
   function displayFullArticle(article) {
-    const display = document.getElementById("article-display");
-    const content = document.getElementById("article-content");
-    if (!display || !content) return;
-
-    ["relevant-articles", "help-sections", "help-categories"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = "none";
-    });
-    ["relevant-title", "category-title"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.add("hidden");
-    });
-    const back = document.getElementById("back-link");
-    if (back) back.classList.remove("hidden");
-
-    const topLink = document.getElementById("article-top-link");
-    if (topLink) {
-      topLink.innerHTML = `
-        <div style="margin-bottom:16px">
-          <a href="${article.html_url}" target="_blank"
-             style="color:var(--blue);font-size:13px;text-decoration:none">
-            See this article in the Help Center
-          </a>
-        </div>
-      `;
+    var display = document.getElementById("article-display");
+    var content = document.getElementById("article-content");
+    if (!display || !content) {
+      return;
     }
 
-    content.innerHTML = `<h4>${article.title}</h4>${article.body}`;
+    ["relevant-articles","help-sections","help-categories"].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = "none"; }
+    });
+    ["relevant-title","category-title"].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.classList.add("hidden"); }
+    });
+    var back = document.getElementById("back-link");
+    if (back) { back.classList.remove("hidden"); }
+
+    var topLink = document.getElementById("article-top-link");
+    if (topLink) {
+      topLink.innerHTML = ''
+        + '<div style="margin-bottom:16px">'
+        +   '<a href="' + article.html_url + '" target="_blank" '
+        +     'style="color:var(--blue);font-size:13px;text-decoration:none">'
+        +     'See this article in the Help Center'
+        +   '</a>'
+        + '</div>';
+    }
+
+    content.innerHTML = '<h4>' + article.title + '</h4>' + article.body;
     display.style.display = "block";
-    setTimeout(() => display.classList.add("show"), 50);
+    setTimeout(function() {
+      display.classList.add("show");
+    }, 50);
     display.scrollIntoView({ behavior: "smooth" });
   }
 
+  // — back button
   function hideArticle() {
-    const display = document.getElementById("article-display");
+    var display = document.getElementById("article-display");
     if (display) {
       display.classList.remove("show");
       display.style.display = "none";
     }
-    const back = document.getElementById("back-link");
-    if (back) back.classList.add("hidden");
+    var back = document.getElementById("back-link");
+    if (back) {
+      back.classList.add("hidden");
+    }
 
-    ["relevant-title", "category-title"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove("hidden");
+    ["relevant-title","category-title"].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.classList.remove("hidden"); }
     });
-    const list = document.getElementById("relevant-articles");
-    if (list) list.style.display = "block";
+    var list = document.getElementById("relevant-articles");
+    if (list) { list.style.display = "block"; }
 
-    const sec = document.getElementById("help-sections");
-    const cat = document.getElementById("help-categories");
+    var sec = document.getElementById("help-sections");
+    var cat = document.getElementById("help-categories");
     if (sec && sec.style.display === "block") {
       sec.style.display = "block";
     } else if (cat) {
@@ -156,82 +193,105 @@ window.helpWidget = (function() {
     }
   }
 
-  async function loadCategories() {
-    const res = await fetch(`${zendeskApi}/categories.json`);
-    const data = await res.json();
-    const container = document.getElementById("help-categories");
-    if (!container) return;
-    container.innerHTML = "";
+  // — load categories
+  function loadCategories() {
+    var url = zendeskApi + "/categories.json";
+    fetch(url)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var cats = data.categories || [];
+        var container = document.getElementById("help-categories");
+        if (!container) { return; }
+        container.innerHTML = "";
 
-    (data.categories || []).forEach(cat => {
-      const div = document.createElement("div");
-      div.className = "category-item";
-      div.innerHTML = `
-        <div class="category-info">
-          <strong>${cat.name}</strong>
-          <small>${cat.description}</small>
-        </div>
-        <span><i data-lucide="chevron-right"></i></span>
-      `;
-      div.addEventListener("click", () => loadSections(cat.id, cat.name));
-      container.appendChild(div);
-    });
+        cats.forEach(function(cat) {
+          var div = document.createElement("div");
+          div.className = "category-item";
+          div.innerHTML = ''
+            + '<div class="category-info">'
+            +   '<strong>' + cat.name + '</strong>'
+            +   '<small>' + cat.description + '</small>'
+            + '</div>'
+            + '<span><i data-lucide="chevron-right"></i></span>';
+          div.addEventListener("click", function() {
+            loadSections(cat.id, cat.name);
+          });
+          container.appendChild(div);
+        });
 
-    if (window.lucide && typeof window.lucide.createIcons==="function") {
-      window.lucide.createIcons();
-    }
+        if (window.lucide && window.lucide.createIcons) {
+          window.lucide.createIcons();
+        }
+      });
   }
 
-  async function loadSections(categoryId, categoryName) {
-    const catsEl = document.getElementById("help-categories");
-    if (catsEl) catsEl.style.display = "none";
+  // — load sections & articles
+  function loadSections(categoryId, categoryName) {
+    var catsEl = document.getElementById("help-categories");
+    if (catsEl) { catsEl.style.display = "none"; }
 
-    const container = document.getElementById("help-sections");
-    if (!container) return;
+    var container = document.getElementById("help-sections");
+    if (!container) { return; }
     container.style.display = "block";
-    container.innerHTML = `
-      <div class="breadcrumb">&larr; All categories</div>
-      <h3>${categoryName}</h3>
-    `;
-    const bc = container.querySelector(".breadcrumb");
+    container.innerHTML = ''
+      + '<div class="breadcrumb">&larr; All categories</div>'
+      + '<h3>' + categoryName + '</h3>';
+
+    var bc = container.querySelector(".breadcrumb");
     if (bc) {
-      bc.addEventListener("click", () => {
+      bc.addEventListener("click", function() {
         container.style.display = "none";
-        if (catsEl) catsEl.style.display = "block";
+        if (catsEl) { catsEl.style.display = "block"; }
       });
     }
 
-    const res = await fetch(`${zendeskApi}/categories/${categoryId}/sections.json`);
-    const data = await res.json();
-    for (const section of (data.sections || [])) {
-      await renderAccordionSection(section, container);
-    }
-    if (window.lucide && typeof window.lucide.createIcons==="function") {
-      window.lucide.createIcons();
-    }
+    var url = zendeskApi + "/categories/" + categoryId + "/sections.json";
+    fetch(url)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var secs = data.sections || [];
+        secs.forEach(function(section) {
+          renderAccordionSection(section, container);
+        });
+        if (window.lucide && window.lucide.createIcons) {
+          window.lucide.createIcons();
+        }
+      });
   }
 
-  async function renderAccordionSection(section, container) {
-    const wrapper = document.createElement("div");
-    const header = document.createElement("div");
+  // — render one accordion section
+  function renderAccordionSection(section, container) {
+    var wrapper = document.createElement("div");
+    var header  = document.createElement("div");
     header.className = "accordion-header";
-    header.innerHTML = `<span>${section.name}</span><i data-lucide="chevron-down"></i>`;
-    const content = document.createElement("div");
+    header.innerHTML = '<span>' + section.name + '</span><i data-lucide="chevron-down"></i>';
+    var content = document.createElement("div");
     content.className = "accordion-content";
 
-    header.addEventListener("click", () => {
-      const isActive = content.classList.contains("active");
-      document.querySelectorAll(".accordion-content").forEach(c => c.classList.remove("active"));
-      document.querySelectorAll(".accordion-header").forEach(h => h.classList.remove("active"));
-      document.querySelectorAll(".accordion-header i").forEach(i => i.setAttribute("data-lucide","chevron-down"));
+    header.addEventListener("click", function() {
+      var isActive = content.classList.contains("active");
+      Array.prototype.forEach.call(
+        document.querySelectorAll(".accordion-content"),
+        function(c) { c.classList.remove("active"); }
+      );
+      Array.prototype.forEach.call(
+        document.querySelectorAll(".accordion-header"),
+        function(h) { h.classList.remove("active"); }
+      );
+      Array.prototype.forEach.call(
+        document.querySelectorAll(".accordion-header i"),
+        function(i) { i.setAttribute("data-lucide","chevron-down"); }
+      );
 
       if (!isActive) {
         content.classList.add("active");
         header.classList.add("active");
-        const ico = header.querySelector("i");
-        if (ico) ico.setAttribute("data-lucide","chevron-up");
+        var ico = header.querySelector("i");
+        if (ico) {
+          ico.setAttribute("data-lucide","chevron-up");
+        }
       }
-      if (window.lucide && typeof window.lucide.createIcons==="function") {
+      if (window.lucide && window.lucide.createIcons) {
         window.lucide.createIcons();
       }
     });
@@ -240,41 +300,44 @@ window.helpWidget = (function() {
     wrapper.appendChild(content);
     container.appendChild(wrapper);
 
-    const res = await fetch(`${zendeskApi}/sections/${section.id}/articles.json`);
-    const data = await res.json();
-    const list = document.createElement("ul");
-
-    (data.articles || []).forEach(article => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <a href="#">${article.title}</a>
-        <div class="article-snippet">
-          ${(article.body || "").replace(/<[^>]+>/g, "").slice(0,280)}...
-        </div>
-      `;
-      const a = li.querySelector("a");
-      if (a) {
-        a.addEventListener("click", e => {
-          e.preventDefault();
-          displayFullArticle(article);
+    var url = zendeskApi + "/sections/" + section.id + "/articles.json";
+    fetch(url)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var arts = data.articles || [];
+        var list = document.createElement("ul");
+        arts.forEach(function(article) {
+          var li = document.createElement("li");
+          li.innerHTML = ''
+            + '<a href="#">' + article.title + '</a>'
+            + '<div class="article-snippet">'
+            +   ( (article.body||"").replace(/<[^>]+>/g,"").slice(0,280) )
+            +   '...'
+            + '</div>';
+          var a = li.querySelector("a");
+          if (a) {
+            a.addEventListener("click", function(e) {
+              e.preventDefault();
+              displayFullArticle(article);
+            });
+          }
+          list.appendChild(li);
         });
-      }
-      list.appendChild(li);
-    });
-
-    content.appendChild(list);
+        content.appendChild(list);
+      });
   }
 
-  // auto-init when #help-widget appears
+  // — auto-init when widget hits the DOM
   if (window.MutationObserver) {
-    new MutationObserver((mutations, obs) => {
+    new MutationObserver(function(muts, obs) {
       if (document.getElementById("help-widget")) {
         init();
         obs.disconnect();
       }
-    }).observe(document.body, { childList: true, subtree: true });
-  } else {
-    const poll = setInterval(() => {
+    }).observe(document.body, { childList:true, subtree:true });
+  }
+  else {
+    var poll = setInterval(function() {
       if (document.getElementById("help-widget")) {
         init();
         clearInterval(poll);
